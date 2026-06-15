@@ -231,7 +231,7 @@ carteira_mock = {
 # ==============================================================================
 # RENDERIZAÇÃO DA INTERFACE INSTITUCIONAL
 # ==============================================================================
-st.title("Píer Partners — Sistema de Análise de Crédito Corporativo")
+st.title("Píer Partners: Sistema de Análise de Crédito Corporativo - Gabriel Bertolini")
 st.markdown("### Distribuição de Combustíveis e Análise de Portfólio")
 st.markdown("---")
 
