@@ -2,7 +2,7 @@ import streamlit as st
 
 # Configuração institucional da página
 st.set_page_config(
-    page_title="Píer Partners - Sistema de Análise de Risco",
+    page_title="Píer Partners : Sistema de Análise de Risco - Gabriel Bertolini",
     layout="wide"
 )
 
