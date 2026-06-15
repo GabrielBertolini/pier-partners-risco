@@ -102,7 +102,7 @@ class CreditEngine:
     def analisar_credito(self, cliente):
         """Aplica filtros de governança e calcula a alocação ótima de limite."""
         
-        # GATILHO ANTI-ERRO: Se o prazo for 0, e uma operacao a vista, nao ha concessao de credito comercial
+        # Gatilho de segurança para operações puramente à vista
         if cliente['prazo_solicitado'] == 0:
             return {
                 "score": self.calcular_scorecard(cliente),
@@ -175,7 +175,10 @@ class CreditEngine:
             else:
                 veredito = "APROVADO SOB CONDIÇÃO"
                 limite_concedido = min(cliente['limite_solicitado'], limite_calculado)
-                acao = f"Liberação de limite condicionada à formalização e registro da garantia de {cliente['garantia']}."
+                if cliente['garantia'] == 'Nenhuma':
+                    acao = "Liberação de limite comercial baseada no giro operacional puro. Recomenda-se estruturar colaterais em negociações futuras para expansão do teto de crédito de conta limpa."
+                else:
+                    acao = f"Liberação de limite condicionada à formalização e registro da garantia de {cliente['garantia']}."
         elif "Tier C" in tier:
             veredito = "EXPOSIÇÃO ADICIONAL REPROVADA"
             limite_concedido = min(cliente['limite_atual'], limite_calculado)
@@ -235,7 +238,151 @@ st.title("Píer Partners: Sistema de Análise de Crédito Corporativo - Gabriel 
 st.markdown("### Distribuição de Combustíveis e Análise de Portfólio")
 st.markdown("---")
 
+# ==============================================================================
+# PARTE I: DEFESA TEÓRICA E DIRETRIZES DA POLÍTICA
+# ==============================================================================
+st.header("Proposta de Política de Crédito Estruturada")
+st.markdown("*Consolidação conceitual, técnica e comercial produzida para o cliente final da Píer Partners.*")
+
+# Criação das 5 Abas Oficiais baseadas no Case de Gestão de Operações
+tab_secao1, tab_secao2, tab_secao3, tab_secao4, tab_secao5 = st.tabs([
+    "1. Matriz de Segmentação", 
+    "2. Fontes & Indicadores Preditivos", 
+    "3. Cálculo de Limite & Garantias", 
+    "4. Alçadas & Régua de Cobrança",
+    "5. Estrutura do Scorecard & Tiers"
+])
+
+with tab_secao1:
+    st.subheader("Seção 1: Diretrizes de Segmentação e Matriz de Risco Setorial")
+    st.markdown(r"""
+    No mercado brasileiro de distribuição de combustíveis, as operações são caracterizadas por margens de lucro extremamente estreitas, altíssima necessidade de capital de giro e ciclos céleres de liquidação de caixa. O risco de inadimplência varia drasticamente dependendo do modelo de atuação do cliente final no ecossistema do *downstream*:
+
+    * **Clientes Bandeirados (Risco Mínimo):** Operam sob contratos de exclusividade de longo prazo. Apresentam a menor volatilidade devido à alta previsibilidade da demanda e à fidelidade contratual forçada. A análise deve focar em fatores comportamentais e de compliance (desvios de galonagem mínima).
+    * **Clientes Bandeira Branca / Spot (Risco Elevado):** Revendedores independentes sem contratos de exclusividade. Compram estritamente por oportunidade de preço diário. Suas margens são esmagadas para competir no varejo de rua, tornando-os altamente vulneráveis a quebras de caixa repentinas. A análise deve ser defensiva e focada em liquidez e colaterais de rápida execução.
+    * **TRRs - Transportadores-Revendedores-Retalhistas (Risco Moderado-Alto):** Atuam como distribuidores de nicho a retalho, concentrados no agronegócio e pequenas frotas. Carregam alto risco de contágio: se os produtores rurais atrasarem devido a quebras de safra regionais, o TRR sofre descasamento e repassa o calote para a distribuidora. A análise deve auditar a qualidade da carteira de sub-recebíveis do cliente.
+    * **Clientes B2B / Consumidores Finais (Risco Corporativo Puro):** Grandes empresas (indústrias, usinas, transportadoras de grande porte) que consomem o combustível internamente sem revender. O consumo é cativo e altamente previsível porque a frota não pode parar. A análise baseia-se na metodologia de análise de crédito corporativo tradicional via estrutura de balanço patrimonial e demonstração de resultados (EBITDA, alavancagem, liquidez).
+    """)
+
+with tab_secao2:
+    st.subheader("Seção 2: Fontes Alternativas de Informação e Indicadores Preditivos de Risco")
+    st.markdown(r"""
+    Quando as demonstrações contábeis tradicionais (balanços) não são confiáveis (indícios de dados inflados) ou inexistem (clientes novos em *cold start*), o processo de subscrição e inteligência de risco deve se ancorar em sinais indiretos de capacidade de pagamento:
+
+    * **Sinais Indiretos de Validação e Fontes Alternativas:**
+        * *Fluxo de Caixa de Cartões de Crédito/Débito:* O extrato das maquininhas de adquirência na bomba fornece a aproximação mais fidedigna e updated da receita real do varejo.
+        * *Dados Regulatórios da ANP:* Verificação contínua do status cadastral do CNPJ. Autuações administrativas ou suspensões por desconformidade técnica são indicadores de insolvência iminente.
+        * *Consultas a Manifestos Eletrônicos (MDFe):* Análise indireta da volumetria real escoada através do rastreamento de fretes e notas fiscais de transporte logístico emitidas.
+        * *Auditoria de Campo Prática:* Verificação física do ponto comercial, bicos ativos na pista e fluxo veicular da via para validar o porte declarado.
+
+    * **Variáveis Mais Preditivas de Inadimplência do Setor:**
+        * *Frequência de Atrasos Recentes (12 meses):* Captura a perda recorrência de controle de capital de giro de curto prazo.
+        * *Severidade Temporal (Atraso Médio em Dias):* O esticamento sistemático de prazos de liquidação internos sinaliza estresse severo de caixa.
+        * *Score de Bureau de Mercado Ajustado:* Essencial para mapear e isolar o endividamento do cliente fora da distribuidora (bancos e protestos em cartórios).
+        * *Volatilidade de Margem na Bomba:* A incapacidade do posto independente de repassar altas internacionais de preço da refinaria esmaga sua liquidez em poucos dias.
+    """)
+
+with tab_secao3:
+    st.subheader("Seção 3: Metodologia de Cálculo de Limite e Estrutura de Colaterais (Garantias)")
+    st.markdown(r"""
+    A alocação de crédito afasta-se de modelos estáticos e foca estritamente na **necessidade real de giro do estoque financiado**, protegendo o capital de giro da distribuidora.
+    """)
+    
+    st.latex(r"""
+    \text{Limite Calculado} = \text{Volume } (m^3) \times \text{Preço do } m^3 \times \left(\frac{\text{Prazo Solicitado}}{30}\right) \times k
+    """)
+    
+    st.markdown(r"""
+    * **Coeficiente de Apetite Comercial ($k$):**
+        * *Tier A (Risco Baixo):* $k = 1.2$ (Permite alavancagem de +20% para capturar mercado).
+        * *Tier B (Risco Moderado):* $k = 1.0$ (Neutralidade comercial).
+        * *Tier C (Risco Elevado):* $k = 0.5$ (Filtro defensivo que corta o teto pela metade).
+        * *Tier D (Risco Crítico):* $k = 0.0$ (Bloqueio/Venda à vista).
+
+    * **Mecanismo Hard Cap de Proteção Patrimonial:**
+        Para blindar o caixa contra projeções comerciais superestimadas, o sistema aplica uma trava rígida baseada no histórico comprovado:
+    """)
+    st.latex(r"""
+    \text{Limite Recomendado Final} = \min(\text{Limite Calculado},\ \text{Compras Médias Mensais} \times 1.5)
+    """)
+    st.markdown(r"""
+    * **Hierarquia Jurídica de Garantias (Loss Given Default - LGD):**
+        * *Fiança Bancária (Peso 100):* Liquidez imediata emitida por bancos de primeira linha, exigida para grandes contas B2B ou frotas governamentais.
+        * *Penhor de Safra + Aval (Peso 90) e Penhor de Safra (Peso 75):* Vinculação real de *commodities* agrícolas físicas, ideal para mitigar o risco sazonal de TRRs.
+        * *Cessão de Recebíveis Estruturada (Peso 85):* Domiciliação do fluxo de cartões do posto em favor da distribuidora, interceptando o dinheiro direto na fonte.
+        * *Aval dos Sócios (Peso 40):* Amarração jurídica básica para coibir risco moral de pequenas empresas, vinculando o patrimônio dos proprietários.
+    """)
+
+with tab_secao4:
+    st.subheader("Seção 4: Governança Operacional: Alçadas de Aprovação e Régua de Cobrança")
+    st.markdown(r"""
+    A governança e a velocidade operacional são coordenadas por parâmetros rígidos de exposição financeira e severidade temporal:
+
+    * **Estrutura de Alçadas de Aprovação:**
+        * *Esteira Automatizada (Mesa Sistêmica):* Propostas de até R\$ 2.000.000,00 classificadas como Tier A ou B, cujos colaterais atendam os pesos mínimos exigidos pela política.
+        * *Comitê Executivo de Crédito:* Ativado para qualquer conta que solicite limites superiores a R\$ 2.000.000,00 (Risco de Concentração de Carteira) ou que demandem exceções técnicas pontuais.
+        * *Diretoria / Conselho de Administração:* Revisões gerais de limites de crédito para regiões inteiras ou reestruturações de dívidas de grandes redes de postos varejistas.
+
+    * **Régua de Cobrança de Tolerância Zero para Combustíveis:**
+        Dada a margem estreita do mercado, o processo de cobrança é intensivo e imediato:
+        * *Dias D-2 a D-1:* Lembretes eletrônicos preventivos de vencimento e checagem de agendamento bancário.
+        * *Dia D+1 (Atraso):* Acionamento telefônico de pista imediato no primeiro horário da manhã e notificação formal enviada por e-mail.
+        * *Dia D+3 (Trava Comercial):* Bloqueio sistêmico automatizado de novas ordens de carregamento. O cliente fica impedido de retirar combustível nas bases.
+        * *Dia D+5 (Protesto):* Envio do título inadimplido para protesto em cartório e inserção de restritivos ativos nos bureaus de mercado (Serasa).
+        * *Dia D+15 (Execução):* Envio do dossiê para assessoria jurídica externa para execução imediata das garantias (acionamento de fianças bancárias ou busca e apreensão de penhores).
+
+    * **Tratamento de Exceções Públicas / B2B:**
+        Contas corporativas com órgãos públicos (como frotas municipais) tradicionalmente atrasam faturamento devido à burocracia do regime de empenhos do Estado. Se amparado por Fiança Bancária ou colaterais líquidos, o sistema isola o atraso técnico e suspende a trava automática de carregamento de pista, preservando contas lucrativas de risco de calote real nulo.
+    """)
+
+with tab_secao5:
+    # CORREÇÃO CRÍTICA: Seção 5 reestruturada para funcionar como o elo lógico do sistema inteiro
+    st.subheader("Seção 5: Arquitetura do Modelo de Score e Conexão com os Tiers de Risco")
+    st.markdown(r"""
+    O MVP funciona como o elo integrador de toda a política de crédito. Ele opera em uma estrutura de duas etapas: primeiro, consolida os dados no **Scorecard** quantitativo; segundo, traduz essa pontuação em um **Tier de Risco**, que dita o coeficiente de apetite comercial ($k$) que alimenta o cálculo de limite da Seção 3.
+
+    #### 1. Formulação Matemática do Scorecard (Os Inputs)
+    A pontuação base do proponente ($Score$) unifica cinco pilares estratégicos de dados, gerando uma nota de 0 a 100:
+    """)
+    
+    st.latex(r"""
+    \text{Score Base} = (N_{\text{comp}} \times 0.30) + (N_{\text{gar}} \times 0.20) + (N_{\text{bur}} \times 0.20) + (N_{\text{seg}} \times 0.15) + (N_{\text{cap}} \times 0.15)
+    """)
+    
+    st.markdown(r"""
+    * **$N_{\text{comp}}$ (Comportamento Interno - 30%):** Histórico de atrasos e inadimplência transacional dentro da nossa casa.
+    * **$N_{\text{gar}}$ (Liquidez da Garantia - 20%):** Nota de segurança jurídica e velocidade de execução do colateral oferecido.
+    * **$N_{\text{bur}}$ (Exposição de Mercado - 20%):** Nota descontínua (*Step Function*) das restrições em bureaus de crédito externos.
+    * **$N_{\text{seg}}$ (Segmentação Comercial - 15%):** Risco sistêmico do canal (Bandeirado = 100, B2B = 80, TRR = 70, Spot = 40).
+    * **$N_{\text{cap}}$ (Capacidade Financeira - 15%):** Razão de Cobertura das compras transacionais contra o limite pleiteado.
+
+    #### 2. Matriz de Tiers de Risco e Consequência Comercial (A Tradução)
+    A nota final do Scorecard é mapeada em faixas rígidas que definem o **Tier de Risco Corporativo** do cliente e determinam o seu fator multiplicador ($k$):
+
+    * **Tier A — Risco Baixo (Score $\ge$ 75) $\rightarrow k = 1.2$:** Clientes excelentes e de alta fidelidade. O sistema libera um prêmio de +20% sobre a necessidade volumétrica bruta para capturar fatia de mercado.
+    * **Tier B — Risco Moderado (Score 55 a 74) $\rightarrow k = 1.0$:** Perfil operacional padrão e saudável. O sistema adota neutralidade, alocando o limite exato correspondente ao giro de estoque financiado.
+    * **Tier C — Risco Elevado (Score 40 a 54) $\rightarrow k = 0.5$:** Contas em observação ou sob estresse financeiro moderado. Como barreira defensiva, o sistema corta o limite calculado pela metade.
+    * **Tier D — Risco Crítico (Score $<$ 40) $\rightarrow k = 0.0$:** Clientes com restritivos graves ou histórico inadimplente severo. O crédito comercial a prazo é zerado e a conta migra para o regime à vista.
+
+    #### 3. Gatilhos硬 de Governança (Reclassificação por Assimetria de Informações)
+    Para blindar o patrimônio da distribuidora contra dados falsos ou falta de histórico, o MVP possui travas automáticas que sobrepõem o cálculo do scorecard e reclassificam o cliente imediatamente:
+    * **Inconsistência Estrutural (Caso C08):** Se o analista identificar indícios de balanços inflados ou dados que não batem com o porte, o sistema anula a nota quantitativa e joga o cliente direto para o **Tier C ($k=0.5$)**, reduzindo a exposição e retendo o teto até auditoria de campo.
+    * **Tratamento de Cold Start (Caso C05):** Clientes novos com relacionamento $\le$ 3 meses e histórico nulo não possuem dados para rodar o scorecard. O sistema força o enquadramento no **Tier C com $k=0.0$**, mantendo o limite a prazo zerado até a apresentação de colaterais líquidos ou maturação da conta.
+
+    #### 4. O MVP como Suporte à Decisão Humana (XAI)
+    Ao expor claramente os fatores pró e contra (XAI), o MVP afasta o aspecto de "caixa-preta" e confere transparência total. O modelo automatiza o fluxo das contas padronizadas e limpas da Píer Partners, permitindo que a mesa de análise humana concentre seu tempo e expertise na validação de fraudes de grande escala e exceções complexas.
+    """)
+
+# Quebra de espaço e separação de painel
+st.markdown("<br><br><br>", unsafe_allow_html=True)
+st.markdown("---")
+
+# ==============================================================================
+# PARTE II: MVP DE ANÁLISE DE CRÉDITO DINÂMICO (SIMULADOR)
+# ==============================================================================
+st.header("MVP de Análise de Crédito — Simulador Prático")
 st.markdown("#### Simulação Comercial e Carga de Dados")
+
 selecao = st.selectbox("Selecione um proponente para preenchimento automatizado dos parâmetros da política:", list(carteira_mock.keys()))
 dados_base = carteira_mock[selecao]
 
@@ -309,110 +456,3 @@ with col_outputs:
     
     st.markdown("##### Diretriz Operacional de Cobrança e Gestão de Conta")
     st.info(resultado['acao_comercial'])
-
-# ==============================================================================
-# DOCUMENTAÇÃO E APRESENTAÇÃO MATEMÁTICA E PRODUTO (SEM EMOJIS)
-# ==============================================================================
-st.markdown("<br><br><br>", unsafe_allow_html=True)
-st.markdown("---")
-st.header("Memória de Cálculo e Estratégia de Produto (Apresentação aos Sócios)")
-st.markdown("*Consolidação técnica e comercial da inteligência de crédito embarcada no sistema Píer Partners.*")
-
-tab_visao, tab_score, tab_limite, tab_governanca = st.tabs([
-    "1. Arquitetura do Produto", 
-    "2. Equações do Scorecard", 
-    "3. Limite e Trava Patrimonial", 
-    "4. Matriz LGD e Casos Práticos"
-])
-
-with tab_visao:
-    st.subheader("Solução CreditTech de Alta Performance para Combustíveis")
-    st.markdown(r"""
-    O mercado de distribuição de combustíveis opera sob cenários de volatilidade extrema de preços, margens estreitas e alta frequência transacional. Sistemas de crédito tradicionais ou puramente baseados em balanços anuais falham por falta de agilidade e sensibilidade setorial.
-    
-    Este produto foi construído sobre uma arquitetura de risco de três camadas, protegendo a liquidez da carteira sem engessar a operação comercial:
-    
-    1. Camada Quantitativa Dinâmica (Scorecard Histórico + Mercado): Consolida dados de comportamento transacional interno, bureaus e capacidade financeira em uma nota em tempo real.
-    2. Camada de Governança e Compliance (Filtros Qualitativos Duros): Trava proponentes automaticamente em cenários de riscos estruturais (fraude cadastral, colapso financeiro ou restritivos graves).
-    3. Camada de Alocação Ótima (Giro Baseado em Volumetria): Calcula a exposição segura baseada na demanda volumétrica projetada, amarrada ao prazo financeiro solicitado.
-    """)
-
-with tab_score:
-    st.subheader("Formulação Matemática do Scorecard Multicritério")
-    st.markdown(r"A nota final de risco do proponente (Score) é modelada através de uma média ponderada sobre 5 pilares estratégicos de dados:")
-    
-    st.latex(r"""
-    \text{Score Base} = (N_{\text{comp}} \times 0.30) + (N_{\text{gar}} \times 0.20) + (N_{\text{bur}} \times 0.20) + (N_{\text{seg}} \times 0.15) + (N_{\text{cap}} \times 0.15)
-    """)
-    
-    st.markdown(r"#### Modelagem Matemática dos Pilares de Entrada ($N$):")
-    st.markdown(r"""
-    * $N_{\text{comp}}$ (Comportamento Interno - Peso: 30%): Avalia simultaneamente a frequência de inadimplência recente e a severidade temporal média dos atrasos:
-        * Fator Frequência: $100 - (\text{atraso\_12m} \times 400)$
-        * Fator Dias: $100 - (\text{atraso\_medio\_dias} \times 4)$
-        * Cálculo: Média aritmética simples entre os dois fatores ($\frac{Freq + Dias}{2}$).
-    * $N_{\text{bur}}$ (Exposição de Mercado - Peso: 20%): O motor implementa uma Step Function (função descontínua por degraus) para isolar faixas de score externo dos bureaus:
-        * Se Bureau $\ge 850 \rightarrow 100 \ \vert\ \ge 750 \rightarrow 85 \ \vert\ \ge 650 \rightarrow 70 \ \vert\ \ge 550 \rightarrow 40 \ \vert\ < 550 \rightarrow 10$
-    * $N_{\text{cap}}$ (Capacidade Financeira - Peso: 15%): Novo pilar para mitigar empresas de fachada. Avalia a Razão de Cobertura do faturamento transacional médio frente à exposição de teto demandada:
-    """)
-    st.latex(r"\text{Razão de Cobertura} = \frac{\text{Compras Médias Mensais}}{\max(\text{Limite Solicitado}, \text{Limite Atual})}")
-    st.markdown(r"""
-        * Razão $\ge 4 \rightarrow 100 \ \vert\ \ge 3 \rightarrow 85 \ \vert\ \ge 2 \rightarrow 70 \ \vert\ \ge 1 \rightarrow 50 \ \vert\ < 1 \rightarrow 20$
-    * $N_{\text{seg}}$ (Segmentação - Peso: 15%): Pontua o risco sistêmico da carteira (Bandeirado: 100, B2B: 80, TRR: 70, Spot: 40). Contas com relacionamento $\ge 24$ meses recebem prêmio de $+10$ pontos de fidelidade.
-    """)
-    
-    st.markdown(r"#### Penalização de Risco de Liquidação Temporal (PMR Implícito):")
-    st.markdown(r"Para conter o risco latente de descasamento financeiro de clientes que solicitam prazos longos mas carregam um histórico lento de pagamento, o modelo aplica um vetor de penalidade na nota base:")
-    st.latex(r"""
-    \text{Penalidade} = \begin{cases} 
-    10, & \text{se } \text{Prazo Solicitado} = 28 \text{ dias e } \text{Atraso Médio} > 15 \text{ dias} \\
-    15, & \text{se } \text{Prazo Solicitado} \ge 21 \text{ dias e } \text{Atraso Médio} > 20 \text{ dias} 
-    \end{cases}
-    """)
-    st.latex(r"\text{Score Final} = \max(0, \min(100, \text{Score Base} - \text{Penalidade}))")
-
-with tab_limite:
-    st.subheader("Arquitetura do Cálculo de Limite Dinâmico Comercial")
-    st.markdown(r"Diferente de sistemas legados que concedem crédito estático com base apenas no balanço, nosso motor calcula o limite técnico com base na necessidade real de giro do estoque financiado:")
-    
-    st.latex(r"""
-    \text{Limite Calculado} = \text{Volume (m³)} \times \text{Preço do m³} \times \left(\frac{\text{Prazo Solicitado}}{30}\right) \times k
-    """)
-    
-    st.markdown(r"#### Parametrização do Coeficiente de Apetite Comercial ($k$):")
-    st.markdown(r"""
-    O fator $k$ calibra a agressividade comercial permitida para cada faixa de risco estruturado (Tiers):
-    * Tier A (Score $\ge 75$): $k = 1.2$ (Agressividade estratégica: adiciona 20% de limite sobre a volumetria contratual para capturar market share de clientes excelentes).
-    * Tier B (Score $55 \vdash 74$): $k = 1.0$ (Neutralidade operacional: aloca o limite exato do giro de estocagem).
-    * Tier C (Score $40 \vdash 54$): $k = 0.5$ (Filtro defensivo: corta a exposição recomendada pela metade).
-    * Tier D (Score $< 40$): $k = 0.0$ (Bloqueio total: exposição dinâmica zerada).
-    """)
-    
-    st.markdown(r"#### Mecanismo Hard Cap de Proteção Patrimonial")
-    st.markdown(r"Para mitigar projeções de compra fraudulentas ou superestimadas pela força comercial, o sistema confronta o resultado numérico contra a capacidade comprovada do cliente, aplicando uma trava rígida:")
-    st.latex(r"""
-    \text{Limite Recommended Final} = \min(\text{Limite Calculado}, \text{Compras Médias Mensais} \times 1.5)
-    """)
-    st.markdown(r"> **Nota de Produto:** Esta regra garante que nenhuma linha de crédito comercial activa possa explodir e ultrapassar 150% do histórico consolidado, blindando o caixa do fundo contra alavancagens predatórias.")
-
-with tab_governanca:
-    st.subheader("Matriz de Severidade de Perda (LGD) e Alinhamento Comercial (XAI)")
-    st.markdown(r"Para dar total clareza aos sócios e mitigar o clássico atrito entre a Mesa de Crédito e o time Comercial, o sistema une regras duras de severidade com explicabilidade de decisões (XAI).")
-    
-    st.markdown(r"#### 1. Matriz de Colaterais e Liquidez Jurídica")
-    st.markdown(r"""
-    Os pesos atribuídos no pilar de garantias do scorecard refletem a facilidade de recuperação e execução dos ativos (Loss Given Default):
-    * Fiança Bancária (100): Risco caixa de liquidez imediata emitida por instituição financeira de primeira linha.
-    * Penhor de Safra + Aval (90): Vinculação real de commodity física atrelada à corresponsabilidade pessoal dos proprietários.
-    * Cessão de Recebíveis (85): Fluxo financeiro estruturado, contudo indexado ao risco de performance de terceiros na ponta.
-    * Penhor de Safra (75): Boa colateralização em grãos/commodities, exigindo custos de custódia e ritos de tomada física.
-    * Aval dos Sócios (40): Baixa liquidez imediata; sujeito a disputas judiciais lentas e risco de desfazimento patrimonial.
-    """)
-    
-    st.markdown(r"#### 2. Casos Práticos de Governança Embarcados")
-    st.markdown(r"""
-    * Mitigação do Risco de Concentração (Caso C06): Operações com exposição pleiteada acima de R$ 2.000.000,00 disparam alertas sistêmicos em tempo real, forçando a mudança do rito de aprovação para Comitê Executivo e exigindo monitoramento e auditoria periódica de recebíveis.
-    * Tratamento de Inconsistência Estrutural (Caso C08): Auditoria de balanço. Indícios de rasuras ou inconsistências cadastrais derrubam o cliente automaticamente para o Tier C, limitando a concessão de crédito comercial.
-    * Exceção de Descasamento Público / B2B (Caso C12): Postos e frotas focados em contratos governamentais rotineiramente sofrem com prazos estendidos e atrasos por burocracia do Estado. Se amparado por Fiança Bancária, o motor isola esse ruído operacional e fixa a nota em 85, retendo uma conta altamente lucrativa sem expor a distribuidora ao risco real.
-    * Tratamento de Cold Start (Caso C05): Contas novas na distribuidora com tempo de relacionamento $\le 3$ meses e sem histórico de faturamento são bloqueadas de receber limites dinâmicos sem a devida apresentação de colaterais líquidos ou evolução da curva de confiança.
-    """)
