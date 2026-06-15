@@ -22,7 +22,7 @@ class CreditEngine:
         """Avaliação quantitativa baseada nos pilares de risco corporativo."""
         
         # PILAR 1: Comportamento Histórico Interno (Peso: 30%)
-        if cliente['segmento'] == 'B2B' and cliente['atraso_medio_dias'] > 60 and cliente['gatar_frequencia'] == 'Fiança bancária':
+        if cliente['segmento'] == 'B2B' and cliente['atraso_medio_dias'] > 60 and cliente['garantia'] == 'Fiança bancária':
             nota_comportamento = 85  
         else:
             fator_frequencia = max(0, 100 - (cliente['atraso_12m'] * 400))
@@ -30,12 +30,12 @@ class CreditEngine:
             nota_comportamento = (fator_frequencia * 0.5) + (fator_dias * 0.5)
 
         # PILAR 2: Liquidez da Garantia (Peso: 20%)
-        garantias_pesos = {
+        g_pesos = {
             'Fiança bancária': 100, 'Cessão de recebíveis': 85,
             'Penhor de safra + Aval': 90, 'Penhor de safra': 75,
             'Aval dos sócios': 40, 'Nenhuma': 0
         }
-        nota_garantia = garantias_pesos.get(cliente['garantia'], 0)
+        nota_garantia = g_pesos.get(cliente['garantia'], 0)
 
         # PILAR 3: Exposição de Mercado / Bureau (Peso: 20%)
         if cliente['restritivos']:
@@ -166,18 +166,22 @@ class CreditEngine:
                 acao = f"Liberação de limite condicionada à formalização e registro da garantia de {cliente['garantia']}."
         elif "Tier C" in tier:
             veredito = "EXPOSIÇÃO ADICIONAL REPROVADA"
-            # CORREÇÃO DO PARADOXO DE CRÉDITO: Garante que o risco mitigado respeite o menor valor do teto
             limite_concedido = min(cliente['limite_atual'], limite_calculado)
-            acao = f"RETENÇÃO OPERACIONAL: {motivo_trava} " if motivo_trava else ""
-            acao += f"Giro de segurança avaliado em {formatar_brl(limite_calculado)}. Reduzir exposição e reter limite teto em {formatar_brl(limite_concedido)} pendente de auditoria de campo."
+            acao = f"RETENCAO OPERACIONAL: {motivo_trava} " if motivo_trava else ""
+            
+            # CORREÇÃO DO MARKDOWN: Escapando o caractere de cifrão para neutralizar o interpretador KaTeX
+            txt_calculado = formatar_brl(limite_calculado).replace("$", r"\$")
+            txt_concedido = formatar_brl(limite_concedido).replace("$", r"\$")
+            
+            acao += f"Giro maximo de seguranca calculado em {txt_calculado}. Reduzir exposicao ativa e travar o limite total recomendado em {txt_concedido} pendente de auditoria de campo."
         else:
             veredito = "SUSPENSÃO DE CRÉDITO COMERCIAL"
-            if cliente['atraso_12m'] > 0.10:
+            if cliente['restritivos'] or cliente['atraso_12m'] > 0.10:
                 limite_concedido = 0.0
-                acao = "Régua de Cobrança Nível Máximo: Reduzir exposição a zero. Migrar operação para regime de pagamento antecipado."
+                acao = "Regua de Cobranca Nivel Maximo: Restritivos ativos ou inadimplencia severa detectada. Bloquear concessao de limite e migrar conta para regime de pagamento antecipado."
             else:
-                limite_concedido = max(0.0, round(cliente['limite_atual'] * 0.6, -3))
-                acao = f"Curva de degradação financeira identificada. Reduzir teto de exposição atual para mitigação de perda latente."
+                limite_concedido = min(limite_calculado, max(0.0, round(cliente['limite_atual'] * 0.6, -3)))
+                acao = f"Curva de degradacao financeira identificada. Reduzir teto de exposicao atual para mitigacao de perda latente."
 
         if alerta_concentracao:
             acao += "\n\nALERTA: Cliente classificado como potencial risco de concentração da carteira."
@@ -290,7 +294,6 @@ with col_outputs:
     st.markdown("##### Deliberação de Crédito Comercial")
     
     st.markdown(f"**Veredito de Risco:** {resultado['veredito']}")
-    # CORREÇÃO DO SEPARADOR DE MOEDA LOCAL (BR)
     st.metric(label="Limite Máximo Recomendado (Alocação Segura)", value=formatar_brl(resultado['limite_concedido']))
     
     st.markdown("##### Diretriz Operacional de Cobrança e Gestão de Conta")
@@ -337,7 +340,7 @@ with tab_score:
         * Fator Frequência: $100 - (\text{atraso\_12m} \times 400)$
         * Fator Dias: $100 - (\text{atraso\_medio\_dias} \times 4)$
         * Cálculo: Média aritmética simples entre os dois fatores ($\frac{Freq + Dias}{2}$).
-    * $N_{\text{bur}}$ (Exposição de Mercado - Peso: 20%): Em vez de adotar uma abordagem linear ineficiente, o motor implementa uma Step Function (função descontínua por degraus) para isolar faixas de score externo dos bureaus:
+    * $N_{\text{bur}}$ (Exposição de Mercado - Peso: 20%): O motor implementa uma Step Function (função descontínua por degraus) para isolar faixas de score externo dos bureaus:
         * Se Bureau $\ge 850 \rightarrow 100 \ \vert\ \ge 750 \rightarrow 85 \ \vert\ \ge 650 \rightarrow 70 \ \vert\ \ge 550 \rightarrow 40 \ \vert\ < 550 \rightarrow 10$
     * $N_{\text{cap}}$ (Capacidade Financeira - Peso: 15%): Novo pilar para mitigar empresas de fachada. Avalia a Razão de Cobertura do faturamento transacional médio frente à exposição de teto demandada:
     """)
@@ -377,9 +380,9 @@ with tab_limite:
     st.markdown(r"#### Mecanismo Hard Cap de Proteção Patrimonial")
     st.markdown(r"Para mitigar projeções de compra fraudulentas ou superestimadas pela força comercial, o sistema confronta o resultado numérico contra a capacidade comprovada do cliente, aplicando uma trava rígida:")
     st.latex(r"""
-    \text{Limite Recomendado Final} = \min(\text{Limite Calculado}, \text{Compras Médias Mensais} \times 1.5)
+    \text{Limite Recommended Final} = \min(\text{Limite Calculado}, \text{Compras Médias Mensais} \times 1.5)
     """)
-    st.markdown(r"> **Nota de Produto:** Esta regra garante que nenhuma linha de crédito comercial ativa possa explodir e ultrapassar 150% do histórico consolidado, blindando o caixa do fundo contra alavancagens predatórias.")
+    st.markdown(r"> **Nota de Produto:** Esta regra garante que nenhuma linha de crédito comercial activa possa explodir e ultrapassar 150% do histórico consolidado, blindando o caixa do fundo contra alavancagens predatórias.")
 
 with tab_governanca:
     st.subheader("Matriz de Severidade de Perda (LGD) e Alinhamento Comercial (XAI)")
@@ -401,4 +404,4 @@ with tab_governanca:
     * Tratamento de Inconsistência Estrutural (Caso C08): Auditoria de balanço. Indícios de rasuras ou inconsistências cadastrais derrubam o cliente automaticamente para o Tier C, limitando a concessão de crédito comercial.
     * Exceção de Descasamento Público / B2B (Caso C12): Postos e frotas focados em contratos governamentais rotineiramente sofrem com prazos estendidos e atrasos por burocracia do Estado. Se amparado por Fiança Bancária, o motor isola esse ruído operacional e fixa a nota em 85, retendo uma conta altamente lucrativa sem expor a distribuidora ao risco real.
     * Tratamento de Cold Start (Caso C05): Contas novas na distribuidora com tempo de relacionamento $\le 3$ meses e sem histórico de faturamento são bloqueadas de receber limites dinâmicos sem a devida apresentação de colaterais líquidos ou evolução da curva de confiança.
-    """)
+        """)
